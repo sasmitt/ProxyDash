@@ -20,6 +20,50 @@ function isHostname(h) {
   return /^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.?$/i.test(h);
 }
 
+/** Junk-tolerant rescue: extract a proxy from markdown/mailto/angle/quote
+ * wrappers, e.g. `user:[pass@host:port](mailto:pass@host:port)`. */
+const JUNK_RE = /[\[\]<>"'`=,;.]|\bmailto:/i;
+const RESCUE_RE = /(?:([a-z][a-z0-9+.-]{2,7}):\/\/)?(?:([A-Za-z0-9.$%!*'~^_+-]{1,128}):([^@\s:[\]]{1,128})@)?((?:\d{1,3}(?:\.\d{1,3}){3})|(?:\[[0-9A-Fa-f:.]{1,45}\])|(?:[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)+)):(\d{1,5})(?!\d)/g;
+
+function rescueProxyLine(line) {
+  if (!JUNK_RE.test(line)) return null;
+  let text = ' ' + String(line) + ' ';
+  // Flatten markdown links, keeping the side that looks like a proxy —
+  // preserves credentials outside the link: user:[pass@host:port](mailto:…) 
+  text = text.replace(/\[([^\][()]{1,300})\]\(([^()]{1,300})\)/g, (mm, label, url) => {
+    const l = String(label).trim();
+    const u = String(url).replace(/^mailto:/i, '').trim();
+    const proxyish = (x) => x.includes('@') || /:\d{1,5}$/.test(x);
+    return proxyish(l) ? l : proxyish(u) ? u : l;
+  });
+  text = text.replace(/[<>"'`]/g, ' ').replace(/\bmailto:/gi, ' ');
+  const trimmed = text.trim();
+  if (!/\s/.test(trimmed)) {
+    const strict = parseLine(trimmed);
+    if (strict.ok) return strict.proxy;
+  }
+  const candidates = new Map();
+  let m;
+  RESCUE_RE.lastIndex = 0;
+  while ((m = RESCUE_RE.exec(text)) !== null) {
+    const scheme = m[1] ? m[1].toLowerCase() : null;
+    if (scheme && !SCHEMES.has(scheme)) continue;
+    let host = m[4].toLowerCase();
+    if (host.startsWith('[')) host = host.slice(1, -1);
+    const port = Number(m[5]);
+    if (port < 1 || port > 65535 || !isHostname(host)) continue;
+    const p = {
+      protocol: scheme, host, port,
+      username: m[2] || null, password: m[3] || null,
+      hasAuth: Boolean(m[2] || m[3]),
+    };
+    const key = `${host}:${port}`;
+    const prev = candidates.get(key);
+    if (!prev || (!prev.hasAuth && p.hasAuth) || (p.protocol && !prev.protocol)) candidates.set(key, p);
+  }
+  return candidates.size === 1 ? candidates.values().next().value : null;
+}
+
 export function parseLine(rawLine) {
   let line = String(rawLine).trim();
   const hash = line.indexOf('#');

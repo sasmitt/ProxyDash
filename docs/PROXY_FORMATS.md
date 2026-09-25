@@ -33,6 +33,18 @@ Passwords may contain `:` in the `IP:PORT:USER:PASS` form — everything after t
 - **Port** — integer 1–65535.
 - **Credentials** — no whitespace; empty username rejected.
 
+## Junk-tolerant rescue
+
+Lists copied from chats, emails or web pages often get mangled by rich-text editors. ProxyCheck extracts the proxy when a line fails the strict parse but contains exactly one recognizable endpoint:
+
+```text
+user:[pass@host:port](mailto:pass@host:port)   → user:pass@host:port   (markdown/mailto links)
+<1.2.3.4:8080>  "1.2.3.4:8080"  proxy=1.2.3.4:8080.                    (wrappers/quotes/trailing punctuation)
+1.2.3.4:8080,5.6.7.8:3128;9.9.9.9:1080                                  (comma/semicolon separated lists)
+```
+
+Lines containing two distinct endpoints stay invalid (reported), and strict-only failures (like `1.2.3.4.5:8080`) are never silently "fixed".
+
 ## Rejected input (reported, not fatal)
 
 ```text

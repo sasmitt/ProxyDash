@@ -85,9 +85,12 @@ export async function serverCredentialExport(api, { format, scope, jobId }) {
 }
 
 export function wireExportModal({ els, api, toastEl, jobId, hasAuthResults, isDemo }) {
-  const syncCredNote = () => {
+  const credState = { authed: hasAuthResults, demo: isDemo };
+  const syncCredNote = (authed, demo) => {
+    if (authed !== undefined) credState.authed = authed;
+    if (demo !== undefined) credState.demo = demo;
     els.creds.checked = false;
-    els.creds.disabled = !hasAuthResults || isDemo;
+    els.creds.disabled = !credState.authed || credState.demo;
     els.credNote.hidden = true;
   };
   syncCredNote();

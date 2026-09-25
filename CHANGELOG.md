@@ -2,6 +2,17 @@
 
 All notable changes to ProxyCheck are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org).
 
+## [1.1.0] — 2026-09-25
+
+### Fixed
+- **Hostname-based proxies failed to connect** — the SSRF-safe DNS lookup didn't honor Node's `all:true` callback shape; every non-IP proxy destination (e.g. `geo.example.com:10080`) now connects correctly (regression test added)
+- **Anonymity "credential export" checkbox never enabled** for authenticated results (closure bug)
+
+### Added
+- **Junk-tolerant proxy parsing**: lines mangled by rich-text editors are rescued automatically — markdown/mailto links (`user:[pass@host:port](mailto:pass@host:port)`), angle brackets `<ip:port>`, quotes, trailing punctuation, and comma/semicolon-separated lists all parse into the correct proxy with full credentials
+- Visible UI error toasts (global error handlers) instead of silent console errors
+- Cache-busting asset versions + `no-cache` for HTML/JS/CSS so updates always propagate
+
 ## [1.0.0] — 2026-09-25
 
 First public release. Developed by Diwas Khatri.

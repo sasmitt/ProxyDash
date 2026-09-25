@@ -12,6 +12,9 @@
  *
  * The parser never throws on bad input; malformed lines are reported with a
  * reason so the UI can show them, and the original raw line is preserved.
+ * A junk-tolerant rescue pass extracts proxies from lines mangled by
+ * rich-text editors (markdown mailto links, angle brackets, quotes,
+ * comma/semicolon separators).
  */
 const net = require('net');
 const { isIPv4, isValidPort, isHostname } = require('./validation');
@@ -19,12 +22,12 @@ const { isIPv4, isValidPort, isHostname } = require('./validation');
 const SCHEMES = new Set(['http', 'https', 'socks4', 'socks4a', 'socks5']);
 
 /**
- * Parse a single proxy line.
+ * Strict parse of a single proxy line.
  * @returns {{ok: true, proxy: object}|{ok: false, reason: string}}
  */
-function parseProxyLine(rawLine) {
+function parseProxyLineStrict(rawLine) {
   let line = String(rawLine).trim();
-  // strip inline comments and surrounding quotes
+  // strip inline comments
   const hash = line.indexOf('#');
   if (hash === 0) return { ok: false, reason: 'comment', skipped: true };
   if (hash > 0) line = line.slice(0, hash).trim();
@@ -45,7 +48,7 @@ function parseProxyLine(rawLine) {
     if (!rest) return { ok: false, reason: 'missing host' };
   }
 
-  // Split credentials: userinfo@hostport (only if '@' appears before any bracket)
+  // Split credentials: userinfo@hostport
   let username = null;
   let password = null;
   const atIndex = rest.indexOf('@');
@@ -85,7 +88,7 @@ function parseProxyLine(rawLine) {
     if (parts.length === 2) {
       [host, portStr] = parts;
     } else if (parts.length > 2) {
-      // bare (unbracketed) IPv6 — accept when the address portion is a valid IPv6
+      // bare (unbracketed) IPv6 — accept when the address portion is valid IPv6
       const joinedV6 = parts.slice(0, -1).join(':');
       if (net.isIP(joinedV6) === 6) {
         host = joinedV6;
@@ -138,6 +141,77 @@ function parseProxyLine(rawLine) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Junk-tolerant rescue pass.
+//
+// Rich-text editors, chats and web pages mangle proxy lists:
+//   user:pass@host:port  →  user:[pass@host:port](mailto:pass@host:port)
+// and proxies get wrapped in angle brackets, quotes, or separated by
+// commas/semicolons. When a line fails the strict parse but contains exactly
+// one recognizable proxy, extract it instead of rejecting the line.
+// ---------------------------------------------------------------------------
+const JUNK_RE = /[\[\]<>"'`=,;.]|\bmailto:/i;
+
+const RESCUE_RE = /(?:([a-z][a-z0-9+.-]{2,7}):\/\/)?(?:([A-Za-z0-9.$%!*'~^_+-]{1,128}):([^@\s:[\]]{1,128})@)?((?:\d{1,3}(?:\.\d{1,3}){3})|(?:\[[0-9A-Fa-f:.]{1,45}\])|(?:[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)+)):(\d{1,5})(?!\d)/g;
+
+function rescueProxyLine(line) {
+  if (!JUNK_RE.test(line)) return null;
+  let text = ' ' + String(line) + ' ';
+  // Flatten markdown links: [label](url) — keep whichever side looks like a
+  // proxy. This preserves credentials that sit OUTSIDE the link, e.g.
+  //   user:[pass@host:port](mailto:pass@host:port) → user:pass@host:port
+  text = text.replace(/\[([^\][()]{1,300})\]\(([^()]{1,300})\)/g, (mm, label, url) => {
+    const l = String(label).trim();
+    const u = String(url).replace(/^mailto:/i, '').trim();
+    const proxyish = (x) => x.includes('@') || /:\d{1,5}$/.test(x);
+    return proxyish(l) ? l : proxyish(u) ? u : l;
+  });
+  // strip wrapper punctuation that never appears inside a valid proxy
+  text = text.replace(/[<>"'`]/g, ' ').replace(/\bmailto:/gi, ' ');
+
+  // If the flattened text is now a clean single token, prefer a strict parse.
+  const trimmed = text.trim();
+  if (!/\s/.test(trimmed)) {
+    const strict = parseProxyLineStrict(trimmed);
+    if (strict.ok) return strict.proxy;
+  }
+
+  const candidates = new Map(); // host:port -> best proxy variant
+  let m;
+  RESCUE_RE.lastIndex = 0;
+  while ((m = RESCUE_RE.exec(text)) !== null) {
+    const scheme = m[1] ? m[1].toLowerCase() : null;
+    if (scheme && !SCHEMES.has(scheme)) continue;
+    let host = m[4].toLowerCase();
+    if (host.startsWith('[')) host = host.slice(1, -1);
+    const port = Number(m[5]);
+    if (!isValidPort(port) || !isHostname(host)) continue;
+    const username = m[2] || null;
+    const password = m[3] || null;
+    const p = { input: line, protocol: scheme, host, port, username, password, hasAuth: Boolean(username || password) };
+    const key = `${host}:${port}`;
+    const prev = candidates.get(key);
+    if (!prev || (!prev.hasAuth && p.hasAuth) || (p.protocol && !prev.protocol)) {
+      candidates.set(key, p);
+    }
+    if (m.index === RESCUE_RE.lastIndex) RESCUE_RE.lastIndex++; // safety
+  }
+  if (candidates.size === 1) return candidates.values().next().value;
+  return null; // nothing found, or ambiguous (multiple distinct host:port)
+}
+
+/**
+ * Public API: strict parse first, then junk-tolerant rescue.
+ * @returns {{ok: true, proxy: object, rescued?: boolean}|{ok: false, reason: string}}
+ */
+function parseProxyLine(rawLine) {
+  const r = parseProxyLineStrict(rawLine);
+  if (r.ok || r.skipped) return r;
+  const rescued = rescueProxyLine(String(rawLine).trim());
+  if (rescued) return { ok: true, proxy: rescued, rescued: true };
+  return r;
+}
+
 /** Stable identity of a proxy (used for dedup and lookup). */
 function proxyKey(p) {
   return [p.protocol || 'auto', p.host, p.port, p.username || '', p.password || ''].join('|');
@@ -145,9 +219,11 @@ function proxyKey(p) {
 
 /**
  * Parse a whole list (textarea or file contents).
+ * Lines are additionally split on commas/semicolons (never valid inside a
+ * proxy string) so `ip:port,user:pass@host:port` lists just work.
  * @returns {{proxies: object[], uniqueCount: number, duplicateCount: number,
  *            invalid: {line: string, lineNo: number, reason: string}[],
- *            totalLines: number}}
+ *            totalLines: number, rescuedCount: number}}
  */
 function parseProxyList(text) {
   const lines = String(text).split(/\r?\n/);
@@ -156,24 +232,28 @@ function parseProxyList(text) {
   const invalid = [];
   let duplicates = 0;
   let totalLines = 0;
+  let rescuedCount = 0;
 
   lines.forEach((raw, i) => {
-    const res = parseProxyLine(raw);
-    if (res.skipped && !res.ok && res.reason === 'comment') return;
-    const nonEmpty = String(raw).trim() !== '';
-    if (!nonEmpty) return;
-    totalLines++;
-    if (!res.ok) {
-      if (invalid.length < 1000) invalid.push({ line: String(raw).trim().slice(0, 200), lineNo: i + 1, reason: res.reason });
-      return;
+    const pieces = raw.split(/[,;]/);
+    for (const piece of pieces) {
+      const res = parseProxyLine(piece);
+      if (res.skipped && !res.ok && res.reason === 'comment') continue;
+      if (piece.trim() === '') continue;
+      totalLines++;
+      if (!res.ok) {
+        if (invalid.length < 1000) invalid.push({ line: String(piece).trim().slice(0, 200), lineNo: i + 1, reason: res.reason });
+        continue;
+      }
+      if (res.rescued) rescuedCount++;
+      const key = proxyKey(res.proxy);
+      if (seen.has(key)) {
+        duplicates++;
+        continue;
+      }
+      seen.set(key, true);
+      proxies.push(res.proxy);
     }
-    const key = proxyKey(res.proxy);
-    if (seen.has(key)) {
-      duplicates++;
-      return;
-    }
-    seen.set(key, true);
-    proxies.push(res.proxy);
   });
 
   return {
@@ -182,6 +262,7 @@ function parseProxyList(text) {
     duplicateCount: duplicates,
     invalid,
     totalLines,
+    rescuedCount,
   };
 }
 
@@ -189,9 +270,6 @@ function parseProxyList(text) {
 function maskProxy(p) {
   let s = p.input;
   if (p.password) s = s.split(p.password).join('********');
-  if (p.username && (s.includes(p.username + ':'))) {
-    // keep username visible but mark password position if not already masked
-  }
   return s;
 }
 
@@ -202,4 +280,4 @@ function maskedLabel(p) {
   return `${scheme}${auth}${host}:${p.port}`;
 }
 
-module.exports = { parseProxyLine, parseProxyList, proxyKey, maskProxy, maskedLabel, SCHEMES };
+module.exports = { parseProxyLine, parseProxyLineStrict, parseProxyList, proxyKey, maskProxy, maskedLabel, SCHEMES };

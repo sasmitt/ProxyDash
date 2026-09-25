@@ -70,6 +70,32 @@ test('assertSafeProxyHost blocks loopback/private by default', () => {
   assert.doesNotThrow(() => assertSafeProxyHost('proxy.example.com', false));
 });
 
+test('safeLookup supports both callback shapes (all:true array and single)', async () => {
+  // Regression: net.connect calls lookup with all:true and expects the full
+  // array back — returning a single address broke hostname-based proxies.
+  const mod = require('dns');
+  const orig = mod.lookup;
+  mod.lookup = (host, opts, cb) => cb(null, [
+    { address: '93.184.216.34', family: 4 },
+    { address: '2606:2800:220:1:248:1893:25c8:1946', family: 6 },
+  ]);
+  try {
+    const lookup = safeLookup(false);
+    const arr = await new Promise((resolve, reject) => {
+      lookup('example.com', { all: true }, (err, a) => (err ? reject(err) : resolve(a)));
+    });
+    assert.ok(Array.isArray(arr), 'all:true must return an array');
+    assert.strictEqual(arr.length, 2);
+    assert.ok(arr[0].address && arr[0].family, 'entries need {address, family}');
+    const single = await new Promise((resolve, reject) => {
+      lookup('example.com', {}, (err, a, f) => (err ? reject(err) : resolve([a, f])));
+    });
+    assert.strictEqual(typeof single[0], 'string', 'single mode must return an address string');
+  } finally {
+    mod.lookup = orig;
+  }
+});
+
 test('safeLookup rejects hostnames resolving to blocked addresses', async () => {
   const lookup = safeLookup(false);
   await assert.rejects(() => new Promise((resolve, reject) => {

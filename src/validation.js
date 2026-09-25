@@ -207,14 +207,19 @@ function assertSafeProxyHost(host, allowPrivate) {
  * Custom dns.lookup for net.connect(): resolves the hostname, validates the
  * resulting address(es), then hands back a safe address. Closes the classic
  * DNS-rebinding TOCTOU window between validation and connect().
+ *
+ * Node's net.connect may call the lookup with `all: true`, in which case the
+ * callback must receive the full array — we honor both shapes.
  */
 function safeLookup(allowPrivate) {
   return function lookup(hostname, options, callback) {
+    const wantAll = Boolean(options && options.all);
     dns.lookup(hostname, { ...options, all: true, verbatim: true }, (err, addresses) => {
       if (err) return callback(err);
       if (!Array.isArray(addresses) || addresses.length === 0) {
         return callback(new Error('ENOTFOUND'));
       }
+      const safe = [];
       for (const a of addresses) {
         let c;
         try {
@@ -224,9 +229,11 @@ function safeLookup(allowPrivate) {
         }
         if (c.metadata) return callback(new SsrfGuardError(c.reason));
         if (c.isBlocked && !allowPrivate) return callback(new SsrfGuardError(c.reason));
+        safe.push(a);
       }
-      const pick = addresses[0];
-      callback(null, pick.address, pick.family);
+      if (safe.length === 0) return callback(new SsrfGuardError('all resolved addresses are blocked'));
+      if (wantAll) return callback(null, safe);
+      callback(null, safe[0].address, safe[0].family);
     });
   };
 }

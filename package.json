@@ -1,7 +1,7 @@
 {
   "name": "proxycheck",
-  "version": "1.0.0",
-  "description": "ProxyCheck — Advanced proxy validation and network metadata analysis for HTTP, HTTPS, SOCKS4 and SOCKS5 proxies.",
+  "version": "1.0.1",
+  "description": "ProxyCheck \u2014 Advanced proxy validation and network metadata analysis for HTTP, HTTPS, SOCKS4 and SOCKS5 proxies.",
   "author": "Diwas Khatri",
   "license": "MIT",
   "main": "server.js",

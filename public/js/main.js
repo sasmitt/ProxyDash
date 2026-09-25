@@ -16,6 +16,15 @@ import { debounce, esc, toast, fmtNum } from './util.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Surface unexpected UI errors as visible toasts instead of a broken page.
+window.addEventListener('error', (e) => {
+  try { toast(els.toasts, `UI error: ${e.message || 'unknown'} (hard-refresh: Ctrl+Shift+R)`, 'err'); } catch { /* noop */ }
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const m = e.reason && e.reason.message ? e.reason.message : String(e.reason || 'unknown');
+  try { toast(els.toasts, `Error: ${m}`, 'err'); } catch { /* noop */ }
+});
+
 const els = {
   input: $('proxy-input'), parseSummary: $('parse-summary'),
   upload: $('upload-btn'), file: $('file-input'), clear: $('clear-btn'), demo: $('demo-btn'),

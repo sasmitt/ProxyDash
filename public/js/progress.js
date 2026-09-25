@@ -5,6 +5,7 @@ import { fmtEta, fmtMs, fmtNum } from './util.js';
 export function renderProgress(els, snapshot, jobActive) {
   if (!snapshot) return;
   const pct = snapshot.total ? Math.min(100, Math.round((snapshot.checked / snapshot.total) * 100)) : 0;
+  if (!els.card || !els.fill) return;
   els.card.classList.add('active');
   els.pct.textContent = `${pct}%`;
   els.count.textContent = `${fmtNum(snapshot.checked)} / ${fmtNum(snapshot.total)} checked`;

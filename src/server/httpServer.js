@@ -287,7 +287,7 @@ function serveStatic(req, res, urlPath) {
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'Content-Length': st.size,
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
+      'Cache-Control': ['.html', '.js', '.mjs', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=300',
     });
     if (req.method === 'HEAD') return res.end();
     const stream = fs.createReadStream(resolved);

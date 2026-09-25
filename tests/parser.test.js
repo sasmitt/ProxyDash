@@ -130,6 +130,56 @@ test('proxyKey is stable and credential-sensitive', () => {
   assert.notStrictEqual(proxyKey(a), proxyKey(c));
 });
 
+test('junk-wrapped proxies are rescued (markdown/mailto/brackets/quotes)', () => {
+  // exactly the format from user reports: rich-text editors turn
+  // user:pass@host:port into markdown mailto links
+  const r = parseProxyLine('xA9pe0xafP8jYjaS:[vkHOgJCOefT6pA0T@geo.floppydata.com:10080](mailto:vkHOgJCOefT6pA0T@geo.floppydata.com:10080)');
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.strictEqual(r.rescued, true);
+  assert.strictEqual(r.proxy.username, 'xA9pe0xafP8jYjaS');
+  assert.strictEqual(r.proxy.password, 'vkHOgJCOefT6pA0T');
+  assert.strictEqual(r.proxy.host, 'geo.floppydata.com');
+  assert.strictEqual(r.proxy.port, 10080);
+
+  const r2 = parseProxyLine('<203.0.113.9:8080>');
+  assert.ok(r2.ok);
+  assert.strictEqual(r2.proxy.host, '203.0.113.9');
+
+  const r3 = parseProxyLine('"socks5://5.6.7.8:1080"');
+  assert.ok(r3.ok);
+  assert.strictEqual(r3.proxy.protocol, 'socks5');
+
+  const r4 = parseProxyLine('proxy=9.9.9.9:3128.');
+  assert.ok(r4.ok);
+  assert.strictEqual(r4.proxy.host, '9.9.9.9');
+
+  // ambiguous junk (two distinct host:port in one line) stays invalid
+  assert.strictEqual(parseProxyLine('1.2.3.4:8080 and 5.6.7.8:3128').ok, false);
+});
+
+test('plain user:pass@host:port (floppydata-style) parses strictly', () => {
+  const r = parseProxyLine('xA9pe0xafP8jYjaS:vkHOgJCOefT6pA0T@geo.floppydata.com:10080');
+  assert.ok(r.ok);
+  assert.strictEqual(r.proxy.username, 'xA9pe0xafP8jYjaS');
+  assert.strictEqual(r.proxy.host, 'geo.floppydata.com');
+  assert.strictEqual(r.proxy.port, 10080);
+  assert.ok(r.proxy.hasAuth);
+  assert.strictEqual(r.rescued, undefined);
+});
+
+test('comma/semicolon separated lists parse per entry', () => {
+  const res = parseProxyList('1.2.3.4:8080,5.6.7.8:3128; 9.9.9.9:1080');
+  assert.strictEqual(res.totalLines, 3);
+  assert.strictEqual(res.uniqueCount, 3);
+  assert.strictEqual(res.invalid.length, 0);
+});
+
+test('strict-only failures stay strict (no junk indicators)', () => {
+  assert.strictEqual(parseProxyLine('1.2.3.4.5:8080').ok, false);
+  assert.strictEqual(parseProxyLine('a b c').ok, false);
+  assert.strictEqual(parseProxyLine('1.2.3.256:8080').ok, false);
+});
+
 test('masked labels never contain the password', () => {
   const p = parseProxyLine('socks5://alice:supersecret@1.2.3.4:1080').proxy;
   const label = maskedLabel(p);
