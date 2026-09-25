@@ -1,0 +1,43 @@
+# Render Blueprint — one-click deployment for ProxyCheck
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: Render Dashboard → New → Blueprint → pick your GitHub repo → Apply.
+# (Or create a Web Service manually with the settings below.)
+
+services:
+  # Node runtime (fast builds, zero dependencies to install)
+  - type: web
+    name: proxycheck
+    runtime: node
+    plan: free
+    region: singapore            # closest to Nepal (alternatives: oregon, frankfurt, ohio)
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Conservative limits for the free tier (single small instance)
+      - key: MAX_PROXIES_PER_JOB
+        value: "10000"
+      - key: DEFAULT_CONCURRENCY
+        value: "100"
+      - key: MAX_CONCURRENCY
+        value: "200"
+      - key: MAX_JOBS_PER_IP
+        value: "2"
+      # SECURITY: never enable on a public deployment
+      - key: ALLOW_PRIVATE_PROXIES
+        value: "false"
+
+  # ── Alternative: Docker runtime (uncomment and remove the service above) ──
+  # - type: web
+  #   name: proxycheck
+  #   runtime: docker
+  #   plan: free
+  #   region: singapore
+  #   healthCheckPath: /api/health
+  #   dockerfilePath: ./Dockerfile

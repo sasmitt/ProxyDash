@@ -1,0 +1,22 @@
+services:
+  proxycheck:
+    build: .
+    image: proxycheck:1.0.0
+    container_name: proxycheck
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env            # optional; safe defaults apply without it
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Keep SSRF protection ON in production (default). Only ever set
+      # ALLOW_PRIVATE_PROXIES=true for local development.
+      # ALLOW_PRIVATE_PROXIES: "false"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1g

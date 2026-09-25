@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Lint (syntax checks)
+        run: npm run lint
+      - name: Unit + integration tests (fully offline)
+        run: npm test
+      - name: Smoke benchmark (100 + 1000 proxies, local mocks)
+        run: node benchmarks/benchmark.js 100,1000

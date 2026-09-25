@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About — ProxyCheck</title>
+  <meta name="description" content="About ProxyCheck — advanced proxy validation and network metadata analysis. Developed by Diwas Khatri.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#04121f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.7 2.6 4 5.7 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.7-4-9s1.3-6.4 4-9z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">ProxyCheck</div>
+          <div class="brand-sub">Advanced Proxy Analyzer</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="/">Checker</a>
+        <a href="/about.html" aria-current="page">About</a>
+      </nav>
+      <button class="icon-btn" id="theme-toggle" title="Toggle dark / light theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main id="main" class="container" style="max-width: 860px;">
+    <section class="card">
+      <div class="card-body" style="padding: 34px 34px 26px;">
+        <h1 style="margin:0 0 6px; font-size: 26px;">ProxyCheck</h1>
+        <p style="color: var(--muted); margin: 0 0 22px; font-size: 16px;">Advanced proxy validation and network metadata analysis.</p>
+        <p>ProxyCheck is an advanced proxy testing and analysis platform designed for fast, reliable proxy validation and detailed network metadata analysis.</p>
+        <p>Built with a focus on speed, reliability, transparency, and developer-friendly tooling.</p>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 22px 0;">
+        <h2 style="font-size: 15px; margin: 0 0 6px;">Developer</h2>
+        <p style="font-weight: 650;">Diwas Khatri</p>
+        <h2 style="font-size: 15px; margin: 22px 0 6px;">What it checks</h2>
+        <ul style="color: var(--muted); line-height: 1.8;">
+          <li>Multi-protocol support: HTTP, HTTPS, SOCKS4, SOCKS4A and SOCKS5 — with real protocol behavior probing, not just input prefixes</li>
+          <li>Latency analysis: connection, handshake, request and total response times</li>
+          <li>Exit IP detection and approximate geolocation (country, region, city, timezone)</li>
+          <li>ASN, ISP / network and organization information</li>
+          <li>Anonymity classification based on headers actually observed by the test endpoint</li>
+          <li>HTTPS / TLS tunnel support with full certificate validation</li>
+          <li>Authentication requirement detection with masked credentials</li>
+        </ul>
+        <h2 style="font-size: 15px; margin: 22px 0 6px;">Honesty &amp; accuracy</h2>
+        <p style="color: var(--muted);">This is a multi-stage validation engine designed for reliable proxy verification — not a guarantee of 100% accuracy. Validation accuracy depends on the target, timeout, network conditions, proxy behavior, and geolocation provider. IP geolocation is approximate and may be inaccurate. Proxy status is a point-in-time measurement.</p>
+        <h2 style="font-size: 15px; margin: 22px 0 6px;">Responsible use</h2>
+        <p style="color: var(--muted);">The application is intended for testing proxies supplied or authorized by the user. It uses controlled validation endpoints, strict SSRF protection, bounded concurrency and rate limits — it is not designed for bypassing authentication, attacking third-party systems or evading security controls.</p>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 22px 0;">
+        <p style="color: var(--faint); margin: 0;">© 2026 Diwas Khatri · Released under the MIT License.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>ProxyCheck — <b>Developed by Diwas Khatri</b></div>
+      <div>© 2026 Diwas Khatri</div>
+    </div>
+  </footer>
+  <script type="module" src="/js/theme.js"></script>
+</body>
+</html>

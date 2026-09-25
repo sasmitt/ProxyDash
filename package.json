@@ -1,0 +1,28 @@
+{
+  "name": "proxycheck",
+  "version": "1.0.0",
+  "description": "ProxyCheck — Advanced proxy validation and network metadata analysis for HTTP, HTTPS, SOCKS4 and SOCKS5 proxies.",
+  "author": "Diwas Khatri",
+  "license": "MIT",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.13"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test --test-force-exit tests/",
+    "bench": "node benchmarks/benchmark.js",
+    "lint": "node scripts/check-syntax.js",
+    "lint:eslint": "eslint src public/js tests benchmarks scripts"
+  },
+  "keywords": [
+    "proxy",
+    "proxy-checker",
+    "proxy-tester",
+    "socks5",
+    "http-proxy",
+    "network-tools"
+  ],
+  "private": true
+}
