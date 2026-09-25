@@ -38,7 +38,7 @@ GitHub Actions (`.github/workflows/ci.yml`) will automatically run lint + the 81
 
 ### Option A: Blueprint (one click)
 
-1. Go to <https://dashboard.render.comBlueprints/new> (Dashboard → **New → Blueprint**)
+1. Go to <https://dashboard.render.com> (Dashboard → **New → Blueprint**)
 2. Grant Render access to your repo if asked, select `proxycheck`
 3. Render reads `render.yaml` (instance type, build/start commands, health check, env vars) → click **Apply**
 4. Wait ~2 minutes → your app is live at `https://proxycheck-xxxx.onrender.com`
